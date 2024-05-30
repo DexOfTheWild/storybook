@@ -21,6 +21,7 @@ import {
 import type { StoryStore } from '../../store';
 import type { Render, RenderType } from './Render';
 import { PREPARE_ABORTED } from './Render';
+import { getUsedProps } from './mount-utils';
 
 const { AbortController } = globalThis;
 
@@ -165,6 +166,7 @@ export class StoryRender<TRenderer extends Renderer> implements Render<TRenderer
       applyBeforeEach,
       unboundStoryFn,
       playFunction,
+      runStep,
     } = story;
 
     if (forceRemount && !initial) {
@@ -231,10 +233,21 @@ export class StoryRender<TRenderer extends Renderer> implements Render<TRenderer
         unboundStoryFn,
       };
 
-      await this.runPhase(abortSignal, 'rendering', async () => {
-        const teardown = await this.renderToScreen(renderContext, canvasElement);
-        this.teardownRender = teardown || (() => {});
-      });
+      const mount = async () => {
+        await this.runPhase(abortSignal, 'rendering', async () => {
+          const teardown = await this.renderToScreen(renderContext, canvasElement);
+          this.teardownRender = teardown || (() => {});
+        });
+      };
+
+      if (!playFunction || !getUsedProps(playFunction).includes('mount')) {
+        await mount();
+        renderContext.storyContext.mount = async () => {
+          throw new Error('Destructure mount if you want to use it in the play function.');
+        };
+      } else {
+        renderContext.storyContext.mount = mount;
+      }
 
       this.notYetRendered = false;
       if (abortSignal.aborted) return;
@@ -246,6 +259,12 @@ export class StoryRender<TRenderer extends Renderer> implements Render<TRenderer
       const onError = (event: ErrorEvent | PromiseRejectionEvent) =>
         unhandledErrors.add('error' in event ? event.error : event.reason);
 
+      const playFunctionContext = {
+        ...renderContext.storyContext,
+        step: (label: StepLabel, play: PlayFunction<TRenderer>) =>
+          runStep!(label, play, playFunctionContext),
+      };
+
       // The phase should be 'rendering' but it might be set to 'aborted' by another render cycle
       if (this.renderOptions.autoplay && forceRemount && playFunction && this.phase !== 'errored') {
         window.addEventListener('error', onError);
@@ -253,7 +272,7 @@ export class StoryRender<TRenderer extends Renderer> implements Render<TRenderer
         this.disableKeyListeners = true;
         try {
           await this.runPhase(abortSignal, 'playing', async () => {
-            await playFunction(renderContext.storyContext);
+            await playFunction(playFunctionContext);
           });
           if (!ignoreUnhandledErrors && unhandledErrors.size > 0) {
             await this.runPhase(abortSignal, 'errored');

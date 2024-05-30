@@ -106,20 +106,7 @@ export function prepareStory<TRenderer extends Renderer>(
   const decoratedStoryFn = applyHooks<TRenderer>(applyDecorators)(undecoratedStoryFn, decorators);
   const unboundStoryFn = (context: StoryContext<TRenderer>) => decoratedStoryFn(context);
 
-  const play = storyAnnotations?.play || componentAnnotations.play;
-
-  const playFunction =
-    play &&
-    (async (storyContext: StoryContext<TRenderer>) => {
-      const playFunctionContext: PlayFunctionContext<TRenderer> = {
-        ...storyContext,
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        step: (label: StepLabel, play: PlayFunction<TRenderer>) =>
-          // TODO: We know runStep is defined, we need a proper normalized annotations type
-          runStep!(label, play, playFunctionContext),
-      };
-      return play(playFunctionContext);
-    });
+  const playFunction = storyAnnotations?.play || componentAnnotations.play;
 
   return {
     ...partialAnnotations,
@@ -133,6 +120,7 @@ export function prepareStory<TRenderer extends Renderer>(
     applyLoaders,
     applyBeforeEach,
     playFunction,
+    runStep,
   };
 }
 export function prepareMeta<TRenderer extends Renderer>(

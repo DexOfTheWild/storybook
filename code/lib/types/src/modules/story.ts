@@ -4,6 +4,8 @@ import type {
   DecoratorFunction,
   LoaderFunction,
   CleanupCallback,
+  StepRunner,
+  PlayFunctionContext,
 } from '@storybook/csf';
 
 import type {
@@ -105,7 +107,8 @@ export type PreparedStory<TRenderer extends Renderer = Renderer> =
       context: StoryContextForLoaders<TRenderer>
     ) => Promise<StoryContextForLoaders<TRenderer> & { loaded: StoryContext<TRenderer>['loaded'] }>;
     applyBeforeEach: (context: StoryContext<TRenderer>) => Promise<CleanupCallback[]>;
-    playFunction?: (context: StoryContext<TRenderer>) => Promise<void> | void;
+    playFunction?: (context: PlayFunctionContext<TRenderer>) => Promise<void> | void;
+    runStep?: StepRunner<TRenderer>;
   };
 
 export type PreparedMeta<TRenderer extends Renderer = Renderer> = Omit<
